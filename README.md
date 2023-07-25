@@ -28,5 +28,5 @@ int main(void)
 
 ### result
 <p align="center">
-  <img src="triangle.ppm" />
+  <img src="[triangle.ppm](https://github.com/tubulocristate/vuhillia/blob/main/triangle.ppm)https://github.com/tubulocristate/vuhillia/blob/main/triangle.ppm" />
 </p>
