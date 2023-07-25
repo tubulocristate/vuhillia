@@ -25,3 +25,8 @@ int main(void)
 	return 0;
 }
 ```
+
+### result
+<p align="center">
+  <img src="triangle.ppm" />
+</p>
