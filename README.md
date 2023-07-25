@@ -27,4 +27,4 @@ int main(void)
 ```
 
 ### result
-![alt text](https://github.com/tubulocristate/vuhillia/blob/main/triangle.ppm?raw=true)
+![alt text](https://github.com/tubulocristate/vuhillia/blob/main/triangle.jpg?raw=true)
