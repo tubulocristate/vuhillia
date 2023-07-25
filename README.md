@@ -27,6 +27,4 @@ int main(void)
 ```
 
 ### result
-<p align="center">
-  <img src="https://github.com/tubulocristate/vuhillia/blob/main/triangle.ppm" />
-</p>
+![alt text](https://github.com/[tubulocristate]/[vuhillia]/blob/[branch]/triangle.ppm?raw=true)
