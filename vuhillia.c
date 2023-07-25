@@ -1,0 +1,249 @@
+#ifndef UNIQUE_FOR_THIS_FILE_
+#define UNIQUE_FOR_THIS_FILE_
+
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <math.h>
+
+void swap(int *number1, int *number2);
+void bresenham_line(uint32_t *pixels, size_t width, size_t height, int x0, int y0, int x1, int y1, uint32_t color);
+void bresenham_centered_line(uint32_t *pixels, size_t width, size_t height, int x0, int y0, int x1, int y1, uint32_t color);
+uint32_t encode_color(uint8_t alpha, uint8_t red, uint8_t green, uint8_t blue);
+void fill_everething(uint32_t *pixels, size_t width, size_t height, uint32_t color);
+int save_to_ppm_file(uint32_t *pixels, size_t width, size_t height, const char *file_path);
+int min(int a, int b);
+int max(int a, int b);
+int cross(int x0, int y0, int x1, int y1);
+void draw_triangle(uint32_t *pixels, size_t width, size_t height, int x0, int y0, int x1, int y1, int x2, int y2, uint32_t color);
+void draw_centered_triangle(uint32_t *pixels, size_t width, size_t height, int x0, int y0, int x1, int y1, int x2, int y2, uint32_t color);
+void draw_interpolated_triangle(uint32_t *pixels, size_t width, size_t height, int x0, int y0, int x1, int y1, int x2, int y2, uint32_t color0, uint32_t color1, uint32_t color2);
+void draw_interpolated_centered_triangle(uint32_t *pixels, size_t width, size_t height, int x0, int y0, int x1, int y1, int x2, int y2, uint32_t color0, uint32_t color1, uint32_t color2);
+void draw_filled_circle(uint32_t *pixels, size_t width, size_t height, int center_x, int center_y, float radius, uint32_t color);
+
+
+#endif
+
+
+#ifdef IMPLEMENTATION_VUHILLIA
+
+void swap(int *number1, int *number2)
+{
+	int dummy = *number1;
+	*number1 = *number2;
+	*number2 = dummy;
+}
+
+void bresenham_line(uint32_t *pixels, size_t width, size_t height, int x0, int y0, int x1, int y1, uint32_t color)
+{
+	size_t total_number_of_pixels = width*height;
+	int is_steep = abs(y1 - y0) > abs(x1 - x0);
+	if (is_steep) {
+		swap(&x0, &y0);
+		swap(&x1, &y1);
+	}
+	if (x1 < x0) {
+		swap(&x0, &x1);
+		swap(&y0, &y1);
+	}
+	
+	float slope;
+	if ((x1 - x0) == 0) {
+		slope = 1;
+	}
+	else {
+		slope = (float)(y1 - y0) / (x1 - x0);
+	}
+	
+	float Y = y0;
+
+	if (is_steep){
+		for (int x = x0; x <= x1; x++){
+			int y = (int)Y;
+			if ((x*width + y) < total_number_of_pixels){
+				pixels[x*width + y] = color;
+				Y += slope;
+			}else break;
+		}
+	}
+	else {
+		for (int x = x0; x <= x1; x++){
+			int y = (int)Y;
+			if ((y*width + x) < total_number_of_pixels){
+				pixels[y*width + x] = color;
+				Y += slope;
+			}else break;
+		}
+	}
+
+}
+
+void bresenham_centered_line(uint32_t *pixels, size_t width, size_t height, int x0, int y0, int x1, int y1, uint32_t color)
+{
+	bresenham_line(pixels, width, height, x0+width/2, y0+height/2, x1+width/2, -y1+height/2, color);
+}
+
+uint32_t encode_color(uint8_t alpha, uint8_t red, uint8_t green, uint8_t blue)
+{
+	return alpha<<(8*3) | red<<(8*2) | green<<(8*1) | blue<<(8*0);
+}
+
+void fill_everething(uint32_t *pixels, size_t width, size_t height, uint32_t color)
+{
+	for (size_t y  = 0; y < height; y++){
+		for (size_t x = 0; x < width; x++){
+			pixels[y*width + x] = color;
+		}
+	}
+}
+
+int save_to_ppm_file(uint32_t *pixels, size_t width, size_t height, const char *file_path)
+{
+	FILE *f = NULL;
+	f = fopen(file_path, "wb");
+
+	if (f == NULL) {
+		return -1;
+	}
+	fprintf(f, "P6\n%zu %zu 255\n", width, height);
+	if (ferror(f)) {
+		fclose(f);
+		return -1;
+	}
+
+	for (size_t i = 0; i < width * height; i++){
+		uint32_t pixel = pixels[i];
+		uint8_t bytes[3] = {
+			(pixel>>(8*2))&0xFF,
+			(pixel>>(8*1))&0xFF,
+			(pixel>>(8*0))&0xFF,
+		};
+		fwrite(bytes, sizeof(bytes), 1, f);
+		if (ferror(f)) {
+			fclose(f);
+			return -1;
+		}
+	}
+	return 0;
+}
+
+int min(int a, int b)
+{
+	if (a < b) return a;
+	else return b;
+}
+
+int max(int a, int b)
+{
+	if (a > b) return a;
+	else return b;
+}
+
+int cross(int x0, int y0, int x1, int y1)
+{
+	return	x0*y1 - y0*x1; 
+}
+
+void draw_triangle(uint32_t *pixels, size_t width, size_t height, int x0, int y0, int x1, int y1, int x2, int y2, uint32_t color)
+{
+	size_t total_number_of_pixels = width*height;
+
+	int v0v1x = x1 - x0;
+	int v0v1y = y1 - y0;
+	int v1v2x = x2 - x1;
+	int v1v2y = y2 - y1;
+	int v2v0x = x0 - x2;
+	int v2v0y = y0 - y2;
+
+	int MIN_X = min(min(x0, x1), x2);
+	int MAX_X = max(max(x0, x1), x2);
+	int MIN_Y = min(min(y0, y1), y2);
+	int MAX_Y = max(max(y0, y1), y2);
+
+	for (int y = MIN_Y; y <= MAX_Y; y++) {
+		for (int x = MIN_X; x <= MAX_X; x++) {
+			int alpha = cross(x-x0, y-y0, v0v1x, v0v1y);
+		      	int beta  = cross(x-x1, y-y1, v1v2x, v1v2y);
+		      	int gama  = cross(x-x2, y-y2, v2v0x, v2v0y);
+			int is_inside = ( ((alpha >= 0)&&(beta >= 0)&&(gama >= 0)) || ((alpha <= 0)&&(beta <= 0)&&(gama <= 0)) );
+			if ( is_inside ) {
+				if ((y*width + x) < total_number_of_pixels) {
+					pixels[y*width + x] = color;
+				}
+			}
+		}
+	}
+}
+
+
+void draw_centered_triangle(uint32_t *pixels, size_t width, size_t height, int x0, int y0, int x1, int y1, int x2, int y2, uint32_t color)
+{
+	draw_triangle(pixels, width, height, x0+width/2, -y0+height/2, x1+width/2, -y1+height/2, x2+width/2, -y2+height/2, color);
+}
+
+void draw_interpolated_triangle(uint32_t *pixels, size_t width, size_t height, int x0, int y0, int x1, int y1, int x2, int y2, uint32_t color0, uint32_t color1, uint32_t color2)
+{
+	size_t total_number_of_pixels = width*height;
+
+	int v0v1x = x1 - x0;
+	int v0v1y = y1 - y0;
+	int v1v2x = x2 - x1;
+	int v1v2y = y2 - y1;
+	int v2v0x = x0 - x2;
+	int v2v0y = y0 - y2;
+
+	int MIN_X = min(min(x0, x1), x2);
+	int MAX_X = max(max(x0, x1), x2);
+	int MIN_Y = min(min(y0, y1), y2);
+	int MAX_Y = max(max(y0, y1), y2);
+
+	float area = cross(x2-x0, y2-y0, x1-x0, y1-y0);
+
+	for (int y = MIN_Y; y <= MAX_Y; y++) {
+		for (int x = MIN_X; x <= MAX_X; x++) {
+			float alpha = cross(x-x0, y-y0, v0v1x, v0v1y) / area;
+		      	float beta  = cross(x-x1, y-y1, v1v2x, v1v2y) / area;
+		      	float gama  = cross(x-x2, y-y2, v2v0x, v2v0y) / area;
+			int is_inside = ( ((alpha >= 0)&&(beta >= 0)&&(gama >= 0)) || ((alpha <= 0)&&(beta <= 0)&&(gama <= 0)) );
+			if (is_inside) {
+				if ((y*width + x) < total_number_of_pixels) {
+					uint8_t red =   beta  *((color0>>(8*2))&0xFF) +
+						        gama  *((color1>>(8*2))&0xFF) + 
+						        alpha *((color2>>(8*2))&0xFF);
+					uint8_t green = beta  *((color0>>(8*1))&0xFF) +
+						        gama  *((color1>>(8*1))&0xFF) + 
+						        alpha *((color2>>(8*1))&0xFF);
+					uint8_t blue =  beta  *((color0>>(8*0))&0xFF) +
+						        gama  *((color1>>(8*0))&0xFF) + 
+						        alpha *((color2>>(8*0))&0xFF);
+					uint32_t color = encode_color(255, red, green, blue);
+					pixels[y*width + x] = color;
+				}
+			}
+		}
+	}
+}
+
+
+void draw_interpolated_centered_triangle(uint32_t *pixels, size_t width, size_t height, int x0, int y0, int x1, int y1, int x2, int y2, uint32_t color0, uint32_t color1, uint32_t color2)
+{
+	draw_interpolated_triangle(pixels, width, height, x0+width/2, -y0+height/2, x1+width/2, -y1+height/2, x2+width/2, -y2+height/2, color0, color1, color2);
+}
+
+void draw_filled_circle(uint32_t *pixels, size_t width, size_t height, int center_x, int center_y, float radius, uint32_t color)
+{
+	float radius_squared = radius * radius;
+	size_t total_number_of_pixels = width*height;
+
+	for (int x = -radius; x <= radius; x++) {
+		for (int y = -radius; y <= radius; y++) {
+			if ( ((x*x + y*y) <= radius_squared) && ((x+center_x)*width + (y+center_y)) < total_number_of_pixels ) {
+				pixels[(x+center_x)*width + (y+center_y)] = color;
+			}
+		}
+	}
+}
+
+
+#endif 
+
