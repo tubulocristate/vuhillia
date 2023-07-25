@@ -1,5 +1,5 @@
 # vuhillia
-Simple header-only graphics library. Still in development. Line, circle, and triangle (with color interpolation between vertices) drawing is available. Rendering of 3D objects is to be implemented. 
+**Inspired by [Tsoding](https://github.com/tsoding)**.<br >Simple header-only graphics library. Still in development. Line, circle, and triangle (with color interpolation between vertices) drawing is available. Rendering of 3D objects is to be implemented. 
 
 ## Gradient Triangle
 ```c
