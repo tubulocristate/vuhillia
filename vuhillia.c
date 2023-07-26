@@ -4,7 +4,15 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <math.h>
+#include <assert.h>
+//#include <math.h>
+
+typedef struct Matrix {
+	size_t rows;
+	size_t cols;
+	float *data;
+} Matrix;
+
 
 void swap(int *number1, int *number2);
 void bresenham_line(uint32_t *pixels, size_t width, size_t height, int x0, int y0, int x1, int y1, uint32_t color);
@@ -20,6 +28,11 @@ void draw_centered_triangle(uint32_t *pixels, size_t width, size_t height, int x
 void draw_interpolated_triangle(uint32_t *pixels, size_t width, size_t height, int x0, int y0, int x1, int y1, int x2, int y2, uint32_t color0, uint32_t color1, uint32_t color2);
 void draw_interpolated_centered_triangle(uint32_t *pixels, size_t width, size_t height, int x0, int y0, int x1, int y1, int x2, int y2, uint32_t color0, uint32_t color1, uint32_t color2);
 void draw_filled_circle(uint32_t *pixels, size_t width, size_t height, int center_x, int center_y, float radius, uint32_t color);
+Matrix matrix_allocate(size_t rows, size_t cols);
+void matrix_print(Matrix matrix);
+void matrix_fill(Matrix matrix, float value);
+void matrix_array_fill(Matrix matrix, float *array);
+void matrix_multiply(Matrix matrix_result, Matrix matrix_left, Matrix matrix_right);
 
 
 #endif
@@ -240,6 +253,60 @@ void draw_filled_circle(uint32_t *pixels, size_t width, size_t height, int cente
 			if ( ((x*x + y*y) <= radius_squared) && ((x+center_x)*width + (y+center_y)) < total_number_of_pixels ) {
 				pixels[(x+center_x)*width + (y+center_y)] = color;
 			}
+		}
+	}
+}
+
+Matrix matrix_allocate(size_t rows, size_t cols)
+{
+	Matrix matrix;
+	matrix.rows = rows;
+	matrix.cols = cols;
+	matrix.data = malloc(sizeof(*matrix.data)*rows*cols);
+	return matrix;
+}
+
+void matrix_print(Matrix matrix)
+{
+	for (size_t row = 0; row < matrix.rows; row++) {
+		for (size_t col = 0; col < matrix.cols; col++) {
+			printf("%.2f\t", matrix.data[row*matrix.cols + col]);
+		}
+		printf("\n");
+	}
+}
+
+void matrix_fill(Matrix matrix, float value)
+{
+	for (size_t row = 0; row < matrix.rows; row++) {
+		for (size_t col = 0; col < matrix.cols; col++) {
+			matrix.data[row*matrix.cols + col] = value;
+		}
+	}
+}
+
+void matrix_array_fill(Matrix matrix, float *array)
+{
+	for (size_t row = 0; row < matrix.rows; row++) {
+		for (size_t col = 0; col < matrix.cols; col++) {
+			matrix.data[row*matrix.cols + col] = array[row*matrix.cols + col];
+		}
+	}
+}
+
+void matrix_multiply(Matrix matrix_result, Matrix matrix_left, Matrix matrix_right)
+{
+	assert (matrix_left.cols == matrix_right.rows);
+	assert (matrix_result.rows == matrix_left.rows);
+	assert (matrix_result.cols == matrix_right.cols);
+	for (size_t row = 0; row < matrix_left.rows; row++) {
+		for (size_t col = 0; col < matrix_right.cols; col++) {
+			float value = 0;
+			for (size_t k = 0; k < matrix_left.cols; k++) {
+				value = value + matrix_left.data[row*matrix_left.cols + k] * 
+					        matrix_right.data[k*matrix_right.cols + col];
+			}
+			matrix_result.data[row*matrix_result.cols + col] = value;
 		}
 	}
 }
