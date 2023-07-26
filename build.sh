@@ -2,4 +2,4 @@
 
 set -eu 
 
-gcc example.c -Wall -Wextra -o example
+gcc example.c -Wall -Wextra -o example -lm

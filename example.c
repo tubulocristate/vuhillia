@@ -5,25 +5,56 @@
 #define HEIGHT 600
 #define BACKGROUND 0x000000
 
-static uint32_t pixels[WIDTH*HEIGHT];
+//static uint32_t pixels[WIDTH*HEIGHT];
+
+
+float cube[] = {0, 0, 0,
+		1, 0, 0,
+		1, 1, 0,
+		0, 1, 0,
+		0, 0, 1,
+		1, 0, 1,
+		1, 1, 1,
+		0, 1, 1};
+
+float faces[] = {0, 1, 2,
+		 0, 2, 3,
+		 0, 4, 7,
+		 0, 7, 3,
+		 0, 4, 5,
+		 0, 5, 1,
+		 1, 5, 2,
+		 2, 5, 6,
+		 2, 6, 3,
+		 3, 7, 6,
+		 4, 5, 6,
+		 4, 6, 7};
 
 
 int main(void)
 {
-	uint32_t color0 = encode_color(255, 255, 0,   0);
-	uint32_t color1 = encode_color(255, 0,   255, 0);
-	uint32_t color2 = encode_color(255, 0,   0,   255);
-	const char *file_path = "triangle.ppm";
-	fill_everething(pixels, WIDTH, HEIGHT, BACKGROUND);
-	draw_interpolated_triangle(pixels, WIDTH, HEIGHT, 0, 0, 50, 200, -400, 300, color0, color1, color2);
-	save_to_ppm_file(pixels, WIDTH, HEIGHT, file_path);
+	Vector3D camera_position = {0, 0, -3};
+	Vector3D camera_looking_at = {0, 0, 0};
+	Vector3D up = {0, 1, 0};
+	Matrix W2CM = matrix_allocate(4, 4);
+	World2CameraMatrix(W2CM, camera_position, camera_looking_at, up);
+	matrix_print(W2CM);
+	printf("_____________________\n");
 
-	Matrix matrix_left = matrix_allocate(3, 3);
-	float array[] = {1., 2., 3., 
-			  4., 5., 6.,
-	   		  7., 8., 9.};
-	matrix_array_fill(matrix_left, array);
-	matrix_print(matrix_left);	
+	Matrix cube_points = matrix_allocate(8, 3);
+	Matrix cube_homogeneous_points = matrix_allocate(8, 4);
+
+	matrix_array_fill(cube_points, cube);
+	matrix_to_homogeneous(cube_homogeneous_points, cube_points);
+	matrix_print(cube_homogeneous_points);
+	printf("_________________________\n");
+
+	Matrix transformed_points = matrix_allocate(4, 8);
+	Matrix cube_homogeneous_transposed = matrix_allocate(4, 8);
+	matrix_transpose(cube_homogeneous_transposed, cube_homogeneous_points);
+	matrix_multiply(transformed_points, W2CM, cube_homogeneous_transposed);
+	matrix_transpose(cube_homogeneous_points, transformed_points);
+	matrix_print(cube_homogeneous_points);
 	
 	return 0;
 }
