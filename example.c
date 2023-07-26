@@ -33,28 +33,22 @@ float faces[] = {0, 1, 2,
 
 int main(void)
 {
-	Vector3D camera_position = {0, 0, -3};
-	Vector3D camera_looking_at = {0, 0, 0};
-	Vector3D up = {0, 1, 0};
-	Matrix W2CM = matrix_allocate(4, 4);
-	World2CameraMatrix(W2CM, camera_position, camera_looking_at, up);
-	matrix_print(W2CM);
-	printf("_____________________\n");
+	//Vector3D camera_position = {0, 0, -3};
+	//Vector3D camera_looking_at = {0, 0, 0};
+	//Vector3D up = {0, 1, 0};
+	//float fov = M_PI;
+	//float z_near = 0.1;
+	//float z_far = 10;
 
-	Matrix cube_points = matrix_allocate(8, 3);
-	Matrix cube_homogeneous_points = matrix_allocate(8, 4);
-
-	matrix_array_fill(cube_points, cube);
-	matrix_to_homogeneous(cube_homogeneous_points, cube_points);
-	matrix_print(cube_homogeneous_points);
-	printf("_________________________\n");
-
-	Matrix transformed_points = matrix_allocate(4, 8);
-	Matrix cube_homogeneous_transposed = matrix_allocate(4, 8);
-	matrix_transpose(cube_homogeneous_transposed, cube_homogeneous_points);
-	matrix_multiply(transformed_points, W2CM, cube_homogeneous_transposed);
-	matrix_transpose(cube_homogeneous_points, transformed_points);
-	matrix_print(cube_homogeneous_points);
-	
+	//Matrix CameraM = matrix_allocate(4, 4);
+	//CameraMatrix(CameraM, camera_position, camera_looking_at, up, fov, z_near, z_far);
+	//matrix_print(CameraM);
+	//matrix_dealocate(CameraM);
+	Matrix Cube = matrix_allocate(8, 3);
+	matrix_array_fill(Cube, cube);
+	matrix_print(Cube);
+	printf("___________\n");
+	center_figure(Cube);
+	matrix_print(Cube);
 	return 0;
 }

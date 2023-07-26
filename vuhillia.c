@@ -47,6 +47,10 @@ Vector3D substract_vectors(Vector3D A, Vector3D B);
 void matrix_identity(Matrix matrix);
 void World2CameraMatrix(Matrix matrix, Vector3D camera_position, Vector3D camera_looking_at, Vector3D up);
 void matrix_transpose(Matrix transposed, Matrix matrix);
+void Camera2ScreenMatrix(Matrix matrix, float fov, float z_near, float z_far);
+void matrix_dealocate(Matrix matrix);
+void center_figure(Matrix matrix);
+void CameraMatrix(Matrix matrix, Vector3D camera_position, Vector3D camera_looking_at, Vector3D up, float fov, float z_near, float z_far);
 
 
 
@@ -281,6 +285,11 @@ Matrix matrix_allocate(size_t rows, size_t cols)
 	return matrix;
 }
 
+void matrix_dealocate(Matrix matrix)
+{
+	free(matrix.data);
+}
+
 void matrix_print(Matrix matrix)
 {
 	for (size_t row = 0; row < matrix.rows; row++) {
@@ -402,6 +411,45 @@ void matrix_transpose(Matrix transposed, Matrix matrix)
 	}
 }
 
+
+void Camera2ScreenMatrix(Matrix matrix, float fov, float z_near, float z_far)
+{
+	matrix_fill(matrix, 0);
+	matrix.data[0*4 + 0] = 1/tan(fov/2);
+	matrix.data[1*4 + 1] = 1/tan(fov/2);
+	matrix.data[2*4 + 2] = z_far / (z_far - z_near);
+	matrix.data[2*4 + 3] = 1;
+	matrix.data[3*4 + 2] = -z_near*z_far / (z_far - z_near);
+}
+
+void center_figure(Matrix matrix)
+{
+	float mean = 0;
+	for (size_t row = 0; row < matrix.rows; row++) {
+		for (size_t col = 0; col < matrix.cols; col++) {
+			mean += matrix.data[row*matrix.cols + col];
+		}
+	}
+	mean /= (matrix.rows * matrix.cols);
+	for (size_t row = 0; row < matrix.rows; row++) {
+		for (size_t col = 0; col < matrix.cols; col++) {
+			matrix.data[row*matrix.cols + col] -= mean;
+		}
+	}
+}
+
+void CameraMatrix(Matrix matrix, Vector3D camera_position, Vector3D camera_looking_at, Vector3D up, float fov, float z_near, float z_far)
+{
+	Matrix W2CM = matrix_allocate(4, 4);
+	Matrix C2SM = matrix_allocate(4, 4);
+	
+	World2CameraMatrix(W2CM, camera_position, camera_looking_at, up);
+	Camera2ScreenMatrix(C2SM, fov, z_near, z_far);
+	matrix_multiply(matrix, C2SM, W2CM);
+
+	matrix_dealocate(W2CM);
+	matrix_dealocate(C2SM);
+}
 
 
 
