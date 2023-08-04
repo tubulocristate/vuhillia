@@ -8,8 +8,8 @@
 #include <math.h>
 
 typedef struct Matrix {
-	size_t rows;
-	size_t cols;
+	size_t *rows;
+	size_t *cols;
 	float *data;
 } Matrix;
 
@@ -24,7 +24,7 @@ void swap(int *number1, int *number2);
 void bresenham_line(uint32_t *pixels, size_t width, size_t height, int x0, int y0, int x1, int y1, uint32_t color);
 void bresenham_centered_line(uint32_t *pixels, size_t width, size_t height, int x0, int y0, int x1, int y1, uint32_t color);
 uint32_t encode_color(uint8_t alpha, uint8_t red, uint8_t green, uint8_t blue);
-void fill_everething(uint32_t *pixels, size_t width, size_t height, uint32_t color);
+void fill_everything(uint32_t *pixels, size_t width, size_t height, uint32_t color);
 int save_to_ppm_file(uint32_t *pixels, size_t width, size_t height, const char *file_path);
 int min(int a, int b);
 int max(int a, int b);
@@ -36,7 +36,7 @@ void draw_interpolated_centered_triangle(uint32_t *pixels, size_t width, size_t 
 void draw_filled_circle(uint32_t *pixels, size_t width, size_t height, int center_x, int center_y, float radius, uint32_t color);
 Matrix matrix_allocate(size_t rows, size_t cols);
 void matrix_print(Matrix matrix);
-void matrix_fill(Matrix matrix, float value);
+void matrix_fill(Matrix atrix, float value);
 void matrix_array_fill(Matrix matrix, float *array);
 void matrix_multiply(Matrix matrix_result, Matrix matrix_left, Matrix matrix_right);
 void matrix_to_homogeneous(Matrix matrix_homogeneous, Matrix matrix);
@@ -46,11 +46,14 @@ Vector3D normalize(Vector3D vector);
 Vector3D substract_vectors(Vector3D A, Vector3D B);
 void matrix_identity(Matrix matrix);
 void World2CameraMatrix(Matrix matrix, Vector3D camera_position, Vector3D camera_looking_at, Vector3D up);
-void matrix_transpose(Matrix transposed, Matrix matrix);
+void matrix_transpose(Matrix matrix);
 void Camera2ScreenMatrix(Matrix matrix, float fov, float z_near, float z_far);
 void matrix_dealocate(Matrix matrix);
 void center_figure(Matrix matrix);
 void CameraMatrix(Matrix matrix, Vector3D camera_position, Vector3D camera_looking_at, Vector3D up, float fov, float z_near, float z_far);
+void perspective_divide(Matrix matrix);
+Vector3D get_vector_by_row(Matrix matrix, size_t row);
+void project_points(Matrix projected_points, Matrix points, Vector3D camera_position, Vector3D camera_looking_at, Vector3D up, float fov, float z_near, float z_far);
 
 
 
@@ -279,22 +282,26 @@ void draw_filled_circle(uint32_t *pixels, size_t width, size_t height, int cente
 Matrix matrix_allocate(size_t rows, size_t cols)
 {
 	Matrix matrix;
-	matrix.rows = rows;
-	matrix.cols = cols;
+	matrix.rows = malloc(sizeof(*matrix.rows));
+	matrix.cols = malloc(sizeof(*matrix.cols));
 	matrix.data = malloc(sizeof(*matrix.data)*rows*cols);
+	*matrix.rows = rows;
+	*matrix.cols = cols;
 	return matrix;
 }
 
 void matrix_dealocate(Matrix matrix)
 {
+	free(matrix.rows);
+	free(matrix.cols);
 	free(matrix.data);
 }
 
 void matrix_print(Matrix matrix)
 {
-	for (size_t row = 0; row < matrix.rows; row++) {
-		for (size_t col = 0; col < matrix.cols; col++) {
-			printf("%.2f\t", matrix.data[row*matrix.cols + col]);
+	for (size_t row = 0; row < *matrix.rows; row++) {
+		for (size_t col = 0; col < *matrix.cols; col++) {
+			printf("%.2f\t", matrix.data[row*(*matrix.cols) + col]);
 		}
 		printf("\n");
 	}
@@ -302,46 +309,47 @@ void matrix_print(Matrix matrix)
 
 void matrix_fill(Matrix matrix, float value)
 {
-	for (size_t row = 0; row < matrix.rows; row++) {
-		for (size_t col = 0; col < matrix.cols; col++) {
-			matrix.data[row*matrix.cols + col] = value;
+	for (size_t row = 0; row < *matrix.rows; row++) {
+		for (size_t col = 0; col < *matrix.cols; col++) {
+			matrix.data[row*(*matrix.cols) + col] = value;
 		}
 	}
 }
 
 void matrix_array_fill(Matrix matrix, float *array)
 {
-	for (size_t row = 0; row < matrix.rows; row++) {
-		for (size_t col = 0; col < matrix.cols; col++) {
-			matrix.data[row*matrix.cols + col] = array[row*matrix.cols + col];
+	for (size_t row = 0; row < *matrix.rows; row++) {
+		for (size_t col = 0; col < *matrix.cols; col++) {
+			matrix.data[row*(*matrix.cols) + col] = array[row*(*matrix.cols) + col];
 		}
 	}
 }
 
 void matrix_multiply(Matrix matrix_result, Matrix matrix_left, Matrix matrix_right)
 {
-	assert (matrix_left.cols == matrix_right.rows);
-	assert (matrix_result.rows == matrix_left.rows);
-	assert (matrix_result.cols == matrix_right.cols);
-	for (size_t row = 0; row < matrix_left.rows; row++) {
-		for (size_t col = 0; col < matrix_right.cols; col++) {
+	assert (*matrix_left.cols == *matrix_right.rows);
+	assert (*matrix_result.rows == *matrix_left.rows);
+	assert (*matrix_result.cols == *matrix_right.cols);
+	for (size_t row = 0; row < *matrix_left.rows; row++) {
+		for (size_t col = 0; col < *matrix_right.cols; col++) {
 			float value = 0;
-			for (size_t k = 0; k < matrix_left.cols; k++) {
-				value = value + matrix_left.data[row*matrix_left.cols + k] * 
-					        matrix_right.data[k*matrix_right.cols + col];
+			for (size_t k = 0; k < *matrix_left.cols; k++) {
+				value = value + matrix_left.data[row*(*matrix_left.cols) + k] * 
+					        matrix_right.data[k*(*matrix_right.cols) + col];
 			}
-			matrix_result.data[row*matrix_result.cols + col] = value;
+			matrix_result.data[row*(*matrix_result.cols) + col] = value;
 		}
 	}
 }
 
 void matrix_to_homogeneous(Matrix matrix_homogeneous, Matrix matrix)
 {
+	
 	matrix_fill(matrix_homogeneous, 1);
-	for (size_t row = 0; row < matrix.rows; row++) {
-		for (size_t col = 0; col < matrix.cols; col++) {
-			matrix_homogeneous.data[row*matrix_homogeneous.cols + col] = 
-				    matrix.data[row*matrix.cols + col];
+	for (size_t row = 0; row < *matrix.rows; row++) {
+		for (size_t col = 0; col < *matrix.cols; col++) {
+			matrix_homogeneous.data[row*(*matrix_homogeneous.cols) + col] = 
+				    matrix.data[row*(*matrix.cols) + col];
 		}
 	}
 }
@@ -373,8 +381,8 @@ Vector3D substract_vectors(Vector3D A, Vector3D B)
 void matrix_identity(Matrix matrix)
 {
 	matrix_fill(matrix, 0);
-	for (size_t i = 0; i < matrix.rows; i++) {
-		matrix.data[i*matrix.rows + i] = 1;
+	for (size_t i = 0; i < *matrix.rows; i++) {
+		matrix.data[i*(*matrix.rows) + i] = 1;
 	}
 }
 
@@ -384,56 +392,71 @@ void World2CameraMatrix(Matrix matrix, Vector3D camera_position, Vector3D camera
 	Vector3D camera_right = normalize(cross3D(up, camera_direction));
 	Vector3D camera_up = cross3D(camera_direction, camera_right);
 
-	matrix_identity(matrix);
-	matrix.data[0*4 + 0] = camera_right.x;
-	matrix.data[0*4 + 1] = camera_right.y;
-	matrix.data[0*4 + 2] = camera_right.z;
+	Matrix R = matrix_allocate(4, 4);
+	matrix_identity(R);
+	R.data[0*4 + 0] = camera_right.x;
+	R.data[0*4 + 1] = camera_right.y;
+	R.data[0*4 + 2] = camera_right.z;
 
-	matrix.data[1*4 + 0] = camera_up.x;
-	matrix.data[1*4 + 1] = camera_up.y;
-	matrix.data[1*4 + 2] = camera_up.z;
+	R.data[1*4 + 0] = camera_up.x;
+	R.data[1*4 + 1] = camera_up.y;
+	R.data[1*4 + 2] = camera_up.z;
 
-	matrix.data[2*4 + 0] = camera_direction.x;
-	matrix.data[2*4 + 1] = camera_direction.y;
-	matrix.data[2*4 + 2] = camera_direction.z;
+	R.data[2*4 + 0] = camera_direction.x;
+	R.data[2*4 + 1] = camera_direction.y;
+	R.data[2*4 + 2] = camera_direction.z;
 
-	matrix.data[3*4 + 0] = -camera_position.x;
-	matrix.data[3*4 + 1] = -camera_position.y;
-	matrix.data[3*4 + 2] = -camera_position.z;
+	Matrix T = matrix_allocate(4, 4);
+	matrix_identity(T);
+	T.data[0*4 + 3] = -camera_position.x;
+	T.data[1*4 + 3] = -camera_position.y;
+	T.data[2*4 + 3] = -camera_position.z;
+
+	matrix_multiply(matrix, R, T);
+	matrix_dealocate(R);
+	matrix_dealocate(T);
 }
 
-void matrix_transpose(Matrix transposed, Matrix matrix)
+void matrix_transpose(Matrix matrix)
 {
-	for (size_t row = 0; row < matrix.rows; row++) {
-		for (size_t col = 0; col < matrix.cols; col++) {
-			transposed.data[col*transposed.cols + row] = matrix.data[row*matrix.cols + col];
+	size_t remember_rows = *matrix.rows;
+	size_t remember_cols = *matrix.cols;
+	float array[remember_rows*remember_cols];
+	for (size_t i = 0; i < remember_rows*remember_cols; i++) {
+		array[i] = matrix.data[i];
+	}	
+	*matrix.rows = remember_cols;
+	*matrix.cols = remember_rows;
+	for (size_t row = 0; row < *matrix.rows; row++) {
+		for (size_t col = 0; col < *matrix.cols; col++) {
+			matrix.data[row*(*matrix.cols) + col] = array[col*(*matrix.rows) + row];
 		}
-	}
+	}	
 }
 
 
 void Camera2ScreenMatrix(Matrix matrix, float fov, float z_near, float z_far)
 {
 	matrix_fill(matrix, 0);
-	matrix.data[0*4 + 0] = 1/tan(fov/2);
-	matrix.data[1*4 + 1] = 1/tan(fov/2);
-	matrix.data[2*4 + 2] = z_far / (z_far - z_near);
-	matrix.data[2*4 + 3] = 1;
-	matrix.data[3*4 + 2] = -z_near*z_far / (z_far - z_near);
+	matrix.data[0*4 + 0] = 1/tan(fov/2*M_PI/180);
+	matrix.data[1*4 + 1] = 1/tan(fov/2*M_PI/180);
+	matrix.data[2*4 + 2] = (z_far + z_near) / (z_near - z_far);
+	matrix.data[2*4 + 3] = 2*z_far*z_near / (z_near - z_far);
+	matrix.data[3*4 + 2] = -1;
 }
 
 void center_figure(Matrix matrix)
 {
 	float mean = 0;
-	for (size_t row = 0; row < matrix.rows; row++) {
-		for (size_t col = 0; col < matrix.cols; col++) {
-			mean += matrix.data[row*matrix.cols + col];
+	for (size_t row = 0; row < *matrix.rows; row++) {
+		for (size_t col = 0; col < *matrix.cols; col++) {
+			mean += matrix.data[row*(*matrix.cols) + col];
 		}
 	}
-	mean /= (matrix.rows * matrix.cols);
-	for (size_t row = 0; row < matrix.rows; row++) {
-		for (size_t col = 0; col < matrix.cols; col++) {
-			matrix.data[row*matrix.cols + col] -= mean;
+	mean /= (*matrix.rows * (*matrix.cols));
+	for (size_t row = 0; row < *matrix.rows; row++) {
+		for (size_t col = 0; col < *matrix.cols; col++) {
+			matrix.data[row*(*matrix.cols) + col] -= mean;
 		}
 	}
 }
@@ -451,6 +474,38 @@ void CameraMatrix(Matrix matrix, Vector3D camera_position, Vector3D camera_looki
 	matrix_dealocate(C2SM);
 }
 
+void perspective_divide(Matrix matrix)
+{
+	for (size_t row = 0; row < *matrix.rows; row++) {
+		for (size_t col = 0; col < *matrix.cols-1; col++) {
+			matrix.data[row*(*matrix.cols) + col] /= matrix.data[row*(*matrix.cols) + 2];
+		}
+	}
+}
+
+Vector3D get_vector_by_row(Matrix matrix, size_t row)
+{
+      float x = matrix.data[row*(*matrix.cols) + 0];	
+      float y = matrix.data[row*(*matrix.cols) + 1];	
+      float z = matrix.data[row*(*matrix.cols) + 2];	
+      Vector3D vector = {x, y, z};
+      return vector;
+}
+
+void project_points(Matrix projected_points, Matrix points, Vector3D camera_position, Vector3D camera_looking_at, Vector3D up, float fov, float z_near, float z_far)
+{
+	Matrix cameraM = matrix_allocate(4, 4);
+	Matrix Hpoints = matrix_allocate(8, 4);
+	CameraMatrix(cameraM, camera_position, camera_looking_at, up, fov, z_near, z_far);
+	matrix_to_homogeneous(Hpoints, points);
+	matrix_transpose(Hpoints);
+	matrix_multiply(projected_points, cameraM, Hpoints);
+	matrix_transpose(projected_points);
+	perspective_divide(projected_points);
+
+	matrix_dealocate(cameraM);
+	matrix_dealocate(Hpoints);
+}
 
 
 #endif 
