@@ -30,7 +30,7 @@ int main(void)
 ![alt text](https://github.com/tubulocristate/vuhillia/blob/main/triangle.jpg?raw=true)
 
 ## Cube with depth
-```
+```c
 #define IMPLEMENTATION_VUHILLIA
 #include "vuhillia.c"
 
