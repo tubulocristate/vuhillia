@@ -54,6 +54,14 @@ void CameraMatrix(Matrix matrix, Vector3D camera_position, Vector3D camera_looki
 void perspective_divide(Matrix matrix);
 Vector3D get_vector_by_row(Matrix matrix, size_t row);
 void project_points(Matrix projected_points, Matrix points, Vector3D camera_position, Vector3D camera_looking_at, Vector3D up, float fov, float z_near, float z_far);
+void scale_figure(Matrix points, size_t width, size_t height);
+void scale_z(Matrix points);
+void draw_triangle_with_depth(uint32_t *pixels, float *z_buffer, size_t width, size_t height, int x0, int y0, float z0, int x1, int y1, float z1, int x2, int y2, float z2);
+void draw_centered_triangle_with_depth(uint32_t *pixels, float *z_buffer, size_t width, size_t height, int x0, int y0, float z0, int x1, int y1, float z1, int x2, int y2, float z2);
+void draw_figure(uint32_t *pixels, float *z_buffer, size_t width, size_t height, Matrix points, Matrix faces);
+
+
+
 
 
 
@@ -478,7 +486,7 @@ void perspective_divide(Matrix matrix)
 {
 	for (size_t row = 0; row < *matrix.rows; row++) {
 		for (size_t col = 0; col < *matrix.cols-1; col++) {
-			matrix.data[row*(*matrix.cols) + col] /= matrix.data[row*(*matrix.cols) + 2];
+			matrix.data[row*(*matrix.cols) + col] /= matrix.data[row*(*matrix.cols) + 3];
 		}
 	}
 }
@@ -501,11 +509,133 @@ void project_points(Matrix projected_points, Matrix points, Vector3D camera_posi
 	matrix_transpose(Hpoints);
 	matrix_multiply(projected_points, cameraM, Hpoints);
 	matrix_transpose(projected_points);
+
 	perspective_divide(projected_points);
 
 	matrix_dealocate(cameraM);
 	matrix_dealocate(Hpoints);
 }
+
+void scale_figure(Matrix points, size_t width, size_t height)
+{
+	float min = 0;
+	for (size_t row = 0; row < *points.rows; row++) {
+		for (size_t col = 0; col < 2; col++) {
+			if (min > points.data[row * (*points.cols) + col]) {
+				min = points.data[row * (*points.cols) + col];
+			}
+		}		
+	}
+
+	for (size_t row = 0; row < *points.rows; row++) {
+		for (size_t col = 0; col < 2; col++) {
+			points.data[row * (*points.cols) + col] -= min;
+		}
+	}		
+
+	float max = 0;
+	for (size_t row = 0; row < *points.rows; row++) {
+		for (size_t col = 0; col < 2; col++) {
+			if (max < points.data[row * (*points.cols) + col]) {
+				max = points.data[row * (*points.cols) + col];
+			}
+		}		
+	}
+	
+	float SCALAR = height*0.7/max;
+	float SCALAR2 = height*0.7/2;
+	for (size_t row = 0; row < *points.rows; row++) {
+		for (size_t col = 0; col < 2; col++) {
+			points.data[row * (*points.cols) + col] *= SCALAR;
+			points.data[row * (*points.cols) + col] -= SCALAR2;
+		}
+	}	
+}
+void scale_z(Matrix points)
+{
+	float min = 10;
+	for (size_t row = 0; row < *points.rows; row++) {
+		if (min > points.data[row*(*points.cols) + 2]) {
+			min = points.data[row*(*points.cols) + 2];
+		}
+	}
+	for (size_t row = 0; row < *points.rows; row++) {
+		points.data[row*(*points.cols) + 2] -= min;
+	}
+	float max = 0;
+	for (size_t row = 0; row < *points.rows; row++) {
+		if (max < points.data[row*(*points.cols) + 2]) {
+			max = points.data[row*(*points.cols) + 2];
+		}
+	}
+	float scale = -1/max;
+	for (size_t row = 0; row < *points.rows; row++) {
+		points.data[row*(*points.cols) + 2] *= scale;
+	}
+}
+
+
+void draw_triangle_with_depth(uint32_t *pixels, float *z_buffer, size_t width, size_t height, int x0, int y0, float z0, int x1, int y1, float z1, int x2, int y2, float z2)
+{
+	size_t total_number_of_pixels = width*height;
+
+	int v0v1x = x1 - x0;
+	int v0v1y = y1 - y0;
+	int v1v2x = x2 - x1;
+	int v1v2y = y2 - y1;
+	int v2v0x = x0 - x2;
+	int v2v0y = y0 - y2;
+
+	int MIN_X = min(min(x0, x1), x2);
+	int MAX_X = max(max(x0, x1), x2);
+	int MIN_Y = min(min(y0, y1), y2);
+	int MAX_Y = max(max(y0, y1), y2);
+
+	float area = cross2D(x2-x0, y2-y0, x1-x0, y1-y0);
+
+	for (int y = MIN_Y; y <= MAX_Y; y++) {
+		for (int x = MIN_X; x <= MAX_X; x++) {
+			float alpha = cross2D(x-x0, y-y0, v0v1x, v0v1y) / area;
+		      	float beta  = cross2D(x-x1, y-y1, v1v2x, v1v2y) / area;
+		      	float gama  = cross2D(x-x2, y-y2, v2v0x, v2v0y) / area;
+			int is_inside = ( ((alpha >= 0)&&(beta >= 0)&&(gama >= 0)) || ((alpha <= 0)&&(beta <= 0)&&(gama <= 0)) );
+			if (is_inside) {
+				if ((y*width + x) < total_number_of_pixels) {
+					float z = z0*beta + z1*gama + z2*alpha;
+					uint8_t brightness = 255*z-20;
+					if (z_buffer[y*width + x] < z) {
+						z_buffer[y*width + x] = z;
+						uint32_t color = encode_color(255, brightness, brightness, brightness);
+						pixels[y*width + x] = color;
+					}
+				}
+			}
+		}
+	}
+}
+
+
+void draw_centered_triangle_with_depth(uint32_t *pixels, float *z_buffer, size_t width, size_t height, int x0, int y0, float z0, int x1, int y1, float z1, int x2, int y2, float z2)
+{
+	draw_triangle_with_depth(pixels, z_buffer, width, height, x0+width/2, -y0+height/2, z0, x1+width/2, -y1+height/2, z1, x2+width/2, -y2+height/2, z2);
+}
+
+
+
+void draw_figure(uint32_t *pixels, float *z_buffer, size_t width, size_t height, Matrix points, Matrix faces)
+{
+	for (size_t i = 0; i < *faces.rows; i++) {
+		size_t v0 = faces.data[i*(*faces.cols) + 0];
+		size_t v1 = faces.data[i*(*faces.cols) + 1];
+		size_t v2 = faces.data[i*(*faces.cols) + 2];
+		Vector3D n0 = get_vector_by_row(points, v0);
+		Vector3D n1 = get_vector_by_row(points, v1);
+		Vector3D n2 = get_vector_by_row(points, v2);
+		draw_centered_triangle_with_depth(pixels, z_buffer, width, height, n0.x, n0.y, n0.z, n1.x, n1.y, n1.z, n2.x, n2.y, n2.z);
+	}
+
+}
+					     
 
 
 #endif 
